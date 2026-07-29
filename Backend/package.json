@@ -1,24 +1,44 @@
 {
   "name": "backend",
   "version": "1.0.0",
-  "description": "This is a project to try our skill that how far we can create a full stack website",
-  "homepage": "https://github.com/Jeevant010/PixelCart#readme",
+  "description": "This for a personal website",
+  "homepage": "https://github.com/Jeevant010/Proper#readme",
   "bugs": {
-    "url": "https://github.com/Jeevant010/PixelCart/issues"
+    "url": "https://github.com/Jeevant010/Proper/issues"
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/Jeevant010/PixelCart.git"
+    "url": "git+https://github.com/Jeevant010/Proper.git"
   },
   "license": "ISC",
-  "author": "Jeevant & Lakshya",
+  "author": "Jeevant",
   "type": "commonjs",
   "main": "index.js",
   "scripts": {
+    "start": "node index.js",
+    "dev": "nodemon index.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
+  "devDependencies": {
+    "nodemon": "^3.1.0"
+  },
   "dependencies": {
-    "dotenv": "^16.5.0",
-    "express": "^5.1.0"
+    "bcrypt": "^6.0.0",
+    "cloudinary": "^2.10.0",
+    "cookie-parser": "^1.4.7",
+    "cors": "^2.8.5",
+    "csurf": "^1.2.2",
+    "dotenv": "^16.6.1",
+    "express": "^5.1.0",
+    "express-rate-limit": "^8.0.1",
+    "express-validator": "^7.2.1",
+    "helmet": "^8.1.0",
+    "jsonwebtoken": "^9.0.2",
+    "mongoose": "^8.15.1",
+    "multer": "^2.1.1",
+    "passport": "^0.7.0",
+    "passport-jwt": "^4.0.1",
+    "razorpay": "^2.9.5",
+    "stripe": "^17.7.0"
   }
 }
