@@ -37,8 +37,6 @@
     "mongoose": "^8.15.1",
     "multer": "^2.1.1",
     "passport": "^0.7.0",
-    "passport-jwt": "^4.0.1",
-    "razorpay": "^2.9.5",
-    "stripe": "^17.7.0"
+    "passport-jwt": "^4.0.1"
   }
 }
