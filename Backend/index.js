@@ -133,13 +133,10 @@ app.get('/admin/csrf-token', csrfProtection, (req, res) =>
 // ========================== ROUTES ================================
 app.get("/", (req, res) => res.send("Hello, World!"));
 
-const paymentRoutes = require('./routes/payment');
-
 app.use(authRoutes); // Public auth routes
 app.use('/admin',  adminAuthRoutes); // Admin routes, rate-limited
 app.use('/admin',  adminFeaturesRoutes); // Admin features
 app.use("/products", productRoutes);
 app.use("/contact", contactRoutes);
-app.use("/api/payment", paymentRoutes);
 // ========================= START SERVER ==========================
 app.listen(port, () => console.log("App is running on port " + port));
