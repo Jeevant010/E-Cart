@@ -28,3 +28,4 @@ dist-ssr
 **\utils\config.js
 
 package-lock.json
+.env.production
