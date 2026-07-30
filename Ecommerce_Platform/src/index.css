@@ -1,68 +1,77 @@
-:root {
-  font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
-  line-height: 1.5;
-  font-weight: 400;
+@import "tailwindcss";
 
-  color-scheme: light dark;
-  color: rgba(255, 255, 255, 0.87);
-  background-color: #242424;
-
-  font-synthesis: none;
-  text-rendering: optimizeLegibility;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-}
-
-a {
-  font-weight: 500;
-  color: #646cff;
-  text-decoration: inherit;
-}
-a:hover {
-  color: #535bf2;
-}
-
+html,
 body {
-  margin: 0;
-  display: flex;
-  place-items: center;
-  min-width: 320px;
-  min-height: 100vh;
+  overflow-x: hidden;
 }
 
-h1 {
-  font-size: 3.2em;
-  line-height: 1.1;
+/* Theme: Red (Dark) */
+body.theme-red {
+  --bg-main: #7f1d1d;
+  --bg-secondary: #b91c1c;
+  --text-main: #fff;
+  --accent: #f87171;
+  background: linear-gradient(
+    135deg,
+    #7f1d1d 0%,
+    #b91c1c 50%,
+    #f87171 100%
+  ) !important;
+  color: var(--text-main);
+  transition: background 0.4s;
 }
 
-button {
-  border-radius: 8px;
-  border: 1px solid transparent;
-  padding: 0.6em 1.2em;
-  font-size: 1em;
-  font-weight: 500;
-  font-family: inherit;
-  background-color: #1a1a1a;
-  cursor: pointer;
-  transition: border-color 0.25s;
-}
-button:hover {
-  border-color: #646cff;
-}
-button:focus,
-button:focus-visible {
-  outline: 4px auto -webkit-focus-ring-color;
+/* Theme: Blue (Light) */
+body.theme-blue {
+  --bg-main: #1e40af;
+  --bg-secondary: #60a5fa;
+  --text-main: #fff;
+  --accent: #dbeafe;
+  background: linear-gradient(
+    135deg,
+    #1e40af 0%,
+    #60a5fa 50%,
+    #dbeafe 100%
+  ) !important;
+  color: var(--text-main);
+  transition: background 0.4s;
 }
 
-@media (prefers-color-scheme: light) {
-  :root {
-    color: #213547;
-    background-color: #ffffff;
+/* Fade-in animation for popovers */
+@keyframes fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
   }
-  a:hover {
-    color: #747bff;
+  to {
+    opacity: 1;
+    transform: translateY(0);
   }
-  button {
-    background-color: #f9f9f9;
-  }
+}
+.animate-fade-in {
+  animation: fade-in 0.15s ease;
+}
+body.theme-red {
+  --heading-color: #fff;
+  --heading-accent: #ff1744; /* Vivid Red */
+  --bg-main: #b71c1c; /* Deep Red */
+  --bg-secondary: #ff8a65; /* Soft Orange */
+  --card-bg: #fff3e0; /* Warm Light */
+  --card-border: #ff1744;
+}
+body.theme-blue {
+  --heading-color: #0d47a1;
+  --heading-accent: #1e88e5; /* Vivid Blue */
+  --bg-main: #e3f2fd; /* Light Blue */
+  --bg-secondary: #90caf9; /* Soft Blue */
+  --card-bg: #ffffff;
+  --card-border: #1e88e5;
+}
+
+/* App.css or index.css */
+.hide-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.hide-scrollbar {
+  -ms-overflow-style: none; /* IE and Edge */
 }
