@@ -22,7 +22,7 @@ const port = process.env.PORT || 8080;
 
 // ==== MONGO CONNECTION ====
 mongoose.connect(
-    `mongodb+srv://Main:${process.env.MONGO_PASSWORD}@cluster0.umnlmnl.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0`
+    `mongodb+srv://User:${process.env.MONGO_PASSWORD}@cluster0.afxf5.mongodb.net/newdata?retryWrites=true&w=majority&appName=Cluster0`
 )
     .then(async () => {
         console.log("Connected to MongoDB!");
