@@ -1,0 +1,49 @@
+const mongoose = require("mongoose");
+
+const priceSchema = new mongoose.Schema({
+  price: { type: Number, required: true },
+  unit: { type: String, required: true }
+}, { _id: false });
+
+const stockSchema = new mongoose.Schema({
+  type: {
+    type: String,
+    enum: ["packet", "weight"],  // for fixed items or variable-weight items
+    required: true
+  },
+  value: {
+    type: Number,
+    required: true
+  },
+  unit: {
+    type: String,
+    required: true
+  }
+}, { _id: false });
+
+const productSchema = new mongoose.Schema({
+  name: { type: String, required: true, unique: true },
+  description: { type: String, required: false },
+  quantity_Unit: { type: String, required: true },
+  image: { type: String, required: false },
+  stock: { type: stockSchema, required: true },  // uses sub-schema here
+  selling_Price: { type: priceSchema, required: true },
+  buying_Price: { type: priceSchema, required: false },
+  category: { type: String, required: true },
+  variants: [
+    {
+      label: { type: String, required: true }, // e.g., "500g", "250g"
+      price: { type: Number, required: true },
+      unit: { type: String, required: true }
+    }
+  ],
+  // --- NEW FIELDS ---
+  totalSold: { type: Number, default: 0 },      // Cumulative sold
+  totalDelivered: { type: Number, default: 0 }, // Cumulative delivered
+}, {
+  timestamps: true
+});
+
+const ProductModel = mongoose.model("Product", productSchema);
+
+module.exports = ProductModel;
