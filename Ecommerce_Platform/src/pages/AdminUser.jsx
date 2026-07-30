@@ -1,0 +1,989 @@
+import { useEffect, useState } from "react";
+import api from "../utils/api";
+import { HistoryEntry } from "../components/Admin/HistoryEntry";
+import { useCookies } from "react-cookie";
+import { Icon } from "@iconify/react";
+
+function UserStatusBadge({ isActive }) {
+  return (
+    <span
+      className={`px-3 py-1 rounded text-sm font-bold ${
+        isActive ? "bg-emerald-100 text-emerald-700" : "bg-red-100 text-red-700"
+      }`}
+    >
+      {isActive ? "Active" : "Inactive"}
+    </span>
+  );
+}
+
+// function HistoryEntry({ entry, onDelete, type }) {
+//   return (
+//     <div className="border rounded-xl p-4 my-4 bg-gray-50 shadow">
+//       <div className="flex justify-between items-center mb-2">
+//         <h4 className="font-bold text-lg text-blue-900">{entry.date}</h4>
+//         <button
+//           onClick={() => onDelete(type, entry.date)}
+//           className="text-red-600 hover:text-red-800 px-3 py-1 rounded-lg bg-red-100 font-semibold text-sm"
+//           title="Delete This Date's Entries"
+//         >
+//           🗑 Delete
+//         </button>
+//       </div>
+//       <div className="space-y-2">
+//         {entry.items.map((item, i) => (
+//           <div key={i} className="text-base flex justify-between">
+//             <div>
+//               <strong>{item.name}</strong> × {item.quantity}
+//             </div>
+//             {type === "purchased_history" && (
+//               <div>
+//                 ₹{item.totalPrice} <span className="text-gray-500">(Adv ₹{item.advancePaid})</span>
+//               </div>
+//             )}
+//             {type === "dues" && (
+//               <div>
+//                 ₹{item.dueAmount} –{" "}
+//                 {item.fullyPaid ? (
+//                   <span className="text-green-700 font-bold">Paid</span>
+//                 ) : (
+//                   <span className="text-red-700 font-bold">Due</span>
+//                 )}
+//               </div>
+//             )}
+//           </div>
+//         ))}
+//       </div>
+//     </div>
+//   );
+// }
+
+export default function AdminUsers() {
+  const [users, setUsers] = useState([]);
+  const [fetching, setFetching] = useState(true);
+  const [searchQuery, setSearchQuery] = useState("");
+
+  // --- Products State ---
+  const [products, setProducts] = useState([]);
+
+  // Modal management
+  const [modalOpen, setModalOpen] = useState(false);
+  const [editing, setEditing] = useState(null); // the user being edited/added
+
+  // Form state for user details
+  const [userForm, setUserForm] = useState(defaultUserForm());
+
+  // Purchase / Due forms
+  const [purchaseForm, setPurchaseForm] = useState(defaultPurchaseDueForm());
+  const [dueForm, setDueForm] = useState(defaultPurchaseDueForm());
+
+  // Viewing selected user's history tab: 'purchase' or 'due'
+  const [viewHistoryUser, setViewHistoryUser] = useState(null);
+  const [historyTab, setHistoryTab] = useState("purchase");
+
+  const [error, setError] = useState("");
+
+  const [cookies] = useCookies(['token']);
+  const token = cookies.token;
+
+  //
+  // Default form states
+  //
+  function defaultUserForm() {
+    return {
+      firstName: "",
+      lastName: "",
+      email: "",
+      phone: "",
+      password: "", // for new users, empty ignore on edit ideally
+    };
+  }
+
+  function defaultPurchaseDueForm() {
+    return {
+      date: "",
+      items: [
+        {
+          name: "",
+          quantity: 1,
+          advancePaid: 0,
+          totalPrice: 0,
+          dueAmount: 0,
+          fullyPaid: false,
+        },
+      ],
+    };
+  }
+
+  // --- Fetch products on load ---
+  const getProducts = async () => {
+    try {
+      // You may want to use /products/get or /products as per your API
+      const { data } = await api.get("/admin/products", {
+                                        headers: {
+                                          Authorization: `Bearer ${token}`
+                                        }
+});
+      // data should be an array of products
+      setProducts(data.products || data || []);
+    } catch (e) {
+      // If products fail to load, fallback to empty array
+      setProducts([]);
+    }
+  };
+
+  //
+  // Fetch users on load
+  //
+  const getUsers = async () => {
+    setFetching(true);
+    try {
+      const { data } = await api.get("/admin/users");
+      setUsers(data.users || []);
+    } catch (e) {
+      setError("Failed to fetch users");
+    } finally {
+      setFetching(false);
+    }
+  };
+
+  useEffect(() => {
+    getUsers();
+    getProducts();
+  }, []);
+
+  //
+  // User form handlers
+  //
+  const handleUserForm = (e) => {
+    const { name, value } = e.target;
+    setUserForm((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const openAddUserModal = () => {
+    setEditing(null);
+    setUserForm(defaultUserForm());
+    setModalOpen(true);
+  };
+
+  const openEditUserModal = (user) => {
+    setEditing(user);
+    setUserForm({
+      firstName: user.firstName || "",
+      lastName: user.lastName || "",
+      email: user.email || "",
+      phone: user.phone || "",
+      password: "", // leave blank on edit
+      _id: user._id,
+    });
+    setModalOpen(true);
+  };
+
+  //
+  // Submit new or updated user
+  //
+  const submitUserForm = async (e) => {
+    e.preventDefault();
+    setError("");
+
+    try {
+      const payload = {
+        firstName: userForm.firstName || "Guest",
+        lastName: userForm.lastName,
+        email: userForm.email || "",
+        phone: userForm.phone,
+        ...(userForm.password ? { password: userForm.password } : {}),
+      };
+
+      if (editing) {
+        await api.put(`/admin/user/${editing._id}`, payload);
+      } else {
+        await api.post("/admin/add-user", payload);
+      }
+
+      setModalOpen(false);
+      getUsers();
+    } catch (err) {
+      setError(
+        err.response?.data?.error ||
+          err.response?.data?.message ||
+          "Failed to save user"
+      );
+    }
+  };
+
+  //
+  // Delete user handler
+  //
+  const deleteUser = async (id) => {
+    if (!window.confirm("Are you sure you want to delete this user?")) return;
+    try {
+      await api.delete(`/admin/delete-user/${id}`);
+      getUsers();
+    } catch (err) {
+      setError("Delete failed");
+    }
+  };
+
+  //
+  // Modal toggle for viewing purchase/due histories of user
+  //
+  const openHistoryModal = (user, type = "purchase") => {
+    setViewHistoryUser(user);
+    setHistoryTab(type);
+  };
+
+  const closeHistoryModal = () => {
+    setViewHistoryUser(null);
+    setPurchaseForm(defaultPurchaseDueForm());
+    setDueForm(defaultPurchaseDueForm());
+  };
+
+  //
+  // Purchase/Due Forms Handlers (ENHANCED)
+  //
+  const handlePurchaseFormChange = (e, index) => {
+    const { name, value } = e.target;
+
+    setPurchaseForm((prev) => {
+      const newItems = [...prev.items];
+      if (name === "date") return { ...prev, date: value };
+
+      // Find product details for auto-calculation
+      if (name === "itemName") {
+        newItems[index].name = value;
+        const product = products.find((p) => p.name === value);
+        if (product) {
+          // Set default quantity/unit, and price if not manually changed
+          newItems[index].unit = product.quantity_Unit || "";
+          newItems[index].rate = product.price || product.selling_Price?.price || 0;
+          // If quantity already set, auto-update total price
+          newItems[index].totalPrice =
+            newItems[index].quantity * newItems[index].rate;
+        } else {
+          newItems[index].unit = "";
+          newItems[index].rate = 0;
+          newItems[index].totalPrice = 0;
+        }
+      } else if (name === "quantity") {
+        newItems[index].quantity = Number(value);
+        // Recalculate total price only if rate is known
+        newItems[index].totalPrice =
+          newItems[index].rate ? newItems[index].rate * newItems[index].quantity : 0;
+      } else if (name === "advancePaid") newItems[index].advancePaid = Number(value);
+      else if (name === "totalPrice") newItems[index].totalPrice = Number(value);
+
+      return { ...prev, items: newItems };
+    });
+  };
+
+  const handleDueFormChange = (e, index) => {
+    const { name, value, checked } = e.target;
+
+    setDueForm((prev) => {
+      const newItems = [...prev.items];
+      if (name === "date") return { ...prev, date: value };
+
+      if (name === "itemName") {
+        newItems[index].name = value;
+        const product = products.find((p) => p.name === value);
+        if (product) {
+          newItems[index].unit = product.quantity_Unit || "";
+          newItems[index].rate = product.price || product.selling_Price?.price || 0;
+          // If quantity already set, auto-update due amount
+          newItems[index].dueAmount =
+            newItems[index].quantity * newItems[index].rate;
+        } else {
+          newItems[index].unit = "";
+          newItems[index].rate = 0;
+          newItems[index].dueAmount = 0;
+        }
+      } else if (name === "quantity") {
+        newItems[index].quantity = Number(value);
+        newItems[index].dueAmount =
+          newItems[index].rate ? newItems[index].rate * newItems[index].quantity : 0;
+      } else if (name === "dueAmount") newItems[index].dueAmount = Number(value);
+      else if (name === "fullyPaid") newItems[index].fullyPaid = checked;
+
+      return { ...prev, items: newItems };
+    });
+  };
+
+  const addPurchaseItem = () => {
+    setPurchaseForm((prev) => ({
+      ...prev,
+      items: [
+        ...prev.items,
+        { name: "", quantity: 1, unit: "", rate: 0, advancePaid: 0, totalPrice: 0 },
+      ],
+    }));
+  };
+
+  const addDueItem = () => {
+    setDueForm((prev) => ({
+      ...prev,
+      items: [
+        ...prev.items,
+        { name: "", quantity: 1, unit: "", rate: 0, dueAmount: 0, fullyPaid: false },
+      ],
+    }));
+  };
+
+  const removePurchaseItem = (idx) => {
+    setPurchaseForm((prev) => ({
+      ...prev,
+      items: prev.items.filter((_, i) => i !== idx),
+    }));
+  };
+
+  const removeDueItem = (idx) => {
+    setDueForm((prev) => ({
+      ...prev,
+      items: prev.items.filter((_, i) => i !== idx),
+    }));
+  };
+
+  //
+  // Submit purchase/due for user
+  //
+  const submitPurchase = async (e) => {
+    e.preventDefault();
+    if (!viewHistoryUser) return;
+    try {
+      await api.post(`/admin/user/${viewHistoryUser._id}/purchase`, purchaseForm);
+      alert("Purchase history updated");
+      getUsers();
+      setPurchaseForm(defaultPurchaseDueForm());
+    } catch (err) {
+      alert("Failed to update purchase history");
+    }
+  };
+
+  const submitDue = async (e) => {
+    e.preventDefault();
+    if (!viewHistoryUser) return;
+    try {
+      const payload = {
+        date: dueForm.date,
+        items: dueForm.items.map(({ name, quantity, dueAmount, fullyPaid }) => ({
+          name,
+          quantity,
+          dueAmount,
+          fullyPaid: !!fullyPaid,
+        })),
+      };
+      await api.post(`/admin/user/${viewHistoryUser._id}/due`, payload);
+      alert("Due history updated");
+      getUsers();
+      setDueForm(defaultPurchaseDueForm());
+    } catch (err) {
+      alert("Failed to update due history");
+    }
+  };
+
+  //
+  // Delete history entry by date
+  //
+  const deleteHistoryItem = async (type, date, itemName) => {
+    if (!viewHistoryUser) return;
+    if (!window.confirm(`Delete ${type} item "${itemName}" for date ${date}?`)) return;
+    try {
+      await api.delete(
+        `/admin/user/${viewHistoryUser._id}/history/${type}/${date}/${itemName}` // Ensure your backend supports this
+      );
+      alert(`${type} item deleted`);
+      getUsers();
+    } catch (err) {
+      alert("Failed to delete history item");
+    }
+  };
+
+  //
+  //
+  // Render
+  //
+  const filteredUsers = users.filter((u) =>
+    (u.firstName || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
+    (u.lastName || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
+    (u.phone || "").includes(searchQuery)
+  );
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-sky-50 to-white p-8 text-black">
+      <div className="max-w-7xl mx-auto">
+        <div className="flex justify-between items-center mb-10">
+          <h2 className="text-4xl font-extrabold text-blue-900 tracking-tight">
+            User Management
+          </h2>
+          <button
+            onClick={openAddUserModal}
+            className="flex gap-2 items-center px-6 py-3 rounded-2xl bg-gradient-to-tr from-blue-700 to-blue-400 text-white text-lg font-bold shadow-lg hover:from-blue-800 hover:to-blue-600 active:scale-95 transition cursor-pointer"
+          >
+            <span className="text-2xl">+</span> Add New User
+          </button>
+        </div>
+
+        {/* SEARCH BAR */}
+        <div className="mb-6">
+          <input type="text" placeholder="Search by name or phone..." className="w-full p-4 rounded-xl border-2 border-blue-200 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/20 outline-none text-lg transition shadow-sm" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
+        </div>
+
+        {error && (
+          <div className="bg-red-100 text-red-700 rounded-xl p-4 mb-6 text-lg font-semibold">{error}</div>
+        )}
+
+        {fetching ? (
+          <div className="text-center text-2xl text-blue-700 py-10">Loading users...</div>
+        ) : users.length === 0 ? (
+          <div className="text-center text-gray-500 text-xl py-10">No users found.</div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-10">
+            {filteredUsers.map((user) => (
+              <div
+                key={user._id}
+                className="bg-white shadow-2xl hover:shadow-3xl rounded-3xl p-7 flex flex-col transition-transform duration-150 hover:scale-[1.03]"
+              >
+                <h3 className="text-2xl font-bold text-blue-900 mb-2 truncate">
+                  {user.firstName} {user.lastName || ""}
+                </h3>
+                <p className="text-gray-600 text-base mb-2 font-mono">{user.email}</p>
+                <p className="text-gray-600 text-base mb-2 font-mono">{user.phone}</p>
+                <div className="flex gap-4 mb-4 border-t pt-3 mt-3">
+                  <div className="flex-1">
+                    <p className="text-xs text-gray-500 font-bold uppercase tracking-wider">Total Purchase</p>
+                    <p className="text-lg font-extrabold text-blue-700">
+                      ₹{user.purchased_history?.reduce((acc, entry) => acc + entry.items.reduce((s, i) => s + (i.totalPrice || 0), 0), 0) || 0}
+                    </p>
+                  </div>
+                  <div className="flex-1">
+                    <p className="text-xs text-gray-500 font-bold uppercase tracking-wider">Total Due</p>
+                    <p className="text-lg font-extrabold text-red-600">
+                      ₹{user.dues?.reduce((acc, entry) => acc + entry.items.filter(i => !i.fullyPaid).reduce((s, i) => s + (i.dueAmount || 0), 0), 0) || 0}
+                    </p>
+                  </div>
+                </div>
+                <div className="mt-3 flex flex-wrap gap-3 items-center mt-auto">
+
+                  <button
+                    onClick={() => openHistoryModal(user, "purchase")}
+                    className="px-4 py-2 rounded-xl bg-indigo-200 text-indigo-700 hover:bg-indigo-300 transition text-base font-bold"
+                  >
+                    🛒 Purchases
+                  </button>
+                  <button
+                    onClick={() => openHistoryModal(user, "due")}
+                    className="px-4 py-2 rounded-xl bg-purple-200 text-purple-700 hover:bg-purple-300 transition text-base font-bold"
+                  >
+                    💰 Dues
+                  </button>
+                </div>
+                <div className="flex gap-2 p-4 bg-gray-50/50 border-t border-gray-100 mt-2">
+                  <button
+                    className="flex-1 cursor-pointer flex items-center justify-center gap-1.5 py-2.5 rounded-xl font-bold bg-indigo-50 text-indigo-700 hover:bg-indigo-100 transition shadow-sm text-sm"
+                    onClick={() => window.open(`/admin/users/${user._id}`, '_blank')}
+                  >
+                    <Icon icon="mdi:open-in-new" className="text-lg" /> Details
+                  </button>
+                  <button
+                    className="flex-[0.5] cursor-pointer flex items-center justify-center py-2.5 rounded-xl font-bold bg-gray-50 text-gray-500 hover:bg-gray-200 transition text-sm"
+                    onClick={() => openEditUserModal(user)}
+                  >
+                    <Icon icon="mdi:pencil" className="text-lg" />
+                  </button>
+                  <button
+                    className="flex-[0.5] cursor-pointer flex items-center justify-center py-2.5 rounded-xl font-bold bg-red-50 text-red-500 hover:bg-red-100 transition text-sm"
+                    onClick={() => deleteUser(user._id)}
+                  >
+                    <Icon icon="mdi:delete" className="text-lg" />
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* User Add/Edit Modal */}
+        {modalOpen && (
+          <div
+            className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center"
+            style={{ backdropFilter: "blur(3px)" }}
+            onClick={() => setModalOpen(false)}
+          >
+            <div
+              className="w-full max-w-xl bg-white rounded-3xl p-10 shadow-3xl relative max-h-[90vh] overflow-auto"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <h3 className="text-3xl font-bold mb-6 text-blue-800 flex items-center gap-3">
+                {editing ? "✏️ Edit User" : "➕ Add New User"}
+              </h3>
+              <button
+                type="button"
+                onClick={() => setModalOpen(false)}
+                className="absolute right-8 top-6 text-gray-400 hover:text-gray-600 text-3xl leading-tight font-bold cursor-pointer"
+                title="Close"
+                aria-label="Close"
+              >
+                ✕
+              </button>
+              <form onSubmit={submitUserForm} className="space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div>
+                    <label className="block text-sm font-semibold mb-2">First Name <span className="text-red-500 font-normal text-xs">*</span></label>
+                    <input
+                      name="firstName"
+                      required
+                      value={userForm.firstName}
+                      onChange={handleUserForm}
+                      className="w-full border p-3 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none text-gray-900 bg-white"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-semibold mb-2">Last Name</label>
+                    <input
+                      name="lastName"
+                      value={userForm.lastName}
+                      onChange={handleUserForm}
+                      className="w-full border p-3 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none text-gray-900 bg-white"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-semibold mb-2">Email</label>
+                    <input
+                      type="email"
+                      name="email"
+                      value={userForm.email}
+                      onChange={handleUserForm}
+                      className="w-full border p-3 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none text-gray-900 bg-white"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-semibold mb-2">Phone <span className="text-gray-400 font-normal text-xs">(Optional)</span></label>
+                    <input
+                      name="phone"
+                      value={userForm.phone}
+                      onChange={handleUserForm}
+                      className="w-full border p-3 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none text-gray-900 bg-white"
+                      placeholder="Will use Name if left blank"
+                    />
+                  </div>
+                  {!editing && (
+                    <div className="md:col-span-2">
+                      <label className="block text-sm font-semibold mb-2">Password <span className="text-gray-400 font-normal text-xs">(Optional)</span></label>
+                      <input
+                        type="password"
+                        name="password"
+                        value={userForm.password}
+                        onChange={handleUserForm}
+                        className="w-full border p-3 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none text-gray-900 bg-white"
+                        placeholder="Default is 123456"
+                      />
+                    </div>
+                  )}
+                </div>
+
+                <button
+                  type="submit"
+                  className="w-full mt-6 bg-gradient-to-tr from-blue-700 to-blue-400 hover:from-blue-800 hover:to-blue-600 text-white py-3 rounded-2xl text-xl font-bold active:scale-95 transition cursor-pointer"
+                >
+                  {editing ? "Update User" : "Add User"}
+                </button>
+
+                {error && (
+                  <p className="text-red-500 text-center mt-3 font-semibold">{error}</p>
+                )}
+              </form>
+            </div>
+          </div>
+        )}
+
+
+        {/* User History Modal */}
+        {viewHistoryUser && (
+          <div
+            className="fixed inset-0 z-50 bg-black/40 flex items-start justify-center pt-10 pb-10 overflow-auto"
+            style={{ backdropFilter: "blur(3px)" }}
+            onClick={closeHistoryModal}
+          >
+            <div
+              className="w-full max-w-3xl bg-white rounded-3xl p-8 shadow-3xl relative max-h-[85vh] overflow-auto"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <button
+                type="button"
+                onClick={closeHistoryModal}
+                className="absolute right-8 top-6 text-gray-400 hover:text-gray-700 text-4xl font-bold cursor-pointer"
+                title="Close"
+                aria-label="Close"
+              >
+                ✕
+              </button>
+
+              <h3 className="text-3xl font-bold text-blue-900 mb-6">
+                {viewHistoryUser.firstName} {viewHistoryUser.lastName || ""}
+              </h3>
+              <div className="flex gap-5 mb-8">
+                <button
+                  className={`px-6 py-3 rounded-2xl font-bold text-lg transition ${
+                    historyTab === "purchase"
+                      ? "bg-blue-600 text-white shadow-md"
+                      : "bg-gray-200 text-gray-700"
+                  }`}
+                  onClick={() => setHistoryTab("purchase")}
+                >
+                  Purchase History
+                </button>
+                <button
+                  className={`px-6 py-3 rounded-2xl font-bold text-lg transition ${
+                    historyTab === "due"
+                      ? "bg-purple-600 text-white shadow-md"
+                      : "bg-gray-200 text-gray-700"
+                  }`}
+                  onClick={() => setHistoryTab("due")}
+                >
+                  Due History
+                </button>
+              </div>
+
+              {/* History List */}
+
+
+              {historyTab === "purchase" && (
+                <>
+                  {(!viewHistoryUser.purchased_history || viewHistoryUser.purchased_history.length === 0) && (
+                      <p className="text-lg text-gray-600 mb-3">No purchase history.</p>
+                    )}
+                    {(viewHistoryUser?.purchased_history ?? [])
+                      .slice()
+                      .sort((a, b) => b.date.localeCompare(a.date))
+                      .map((entry, idx) => (
+                        <HistoryEntry
+                          key={`${entry.date}-${idx}`}
+                          entry={entry}
+                          onDelete={deleteHistoryItem}
+                          type="purchased_history"
+                        />
+                    ))}
+
+                  {/* Add Purchase Form */}
+                  <div className="mt-8 border-t pt-7">
+                    <h4 className="font-bold mb-4 text-xl text-blue-800">
+                      Add Purchase Entry
+                    </h4>
+                    <form onSubmit={submitPurchase} className="space-y-6">
+                      <div>
+                        <label className="block text-sm font-bold mb-2">
+                          Date (YYYY-MM-DD)
+                        </label>
+                        <input
+                          type="date"
+                          value={purchaseForm.date}
+                          name="date"
+                          onChange={(e) =>
+                            setPurchaseForm((prev) => ({
+                              ...prev,
+                              date: e.target.value,
+                            }))
+                          }
+                          required
+                          className="w-full border p-3 rounded-xl focus:ring-2 focus:ring-blue-500"
+                        />
+                      </div>
+                      {purchaseForm.items.map((item, idx) => {
+                        const selectedProduct = products.find((p) => p.name === item.name);
+                        return (
+                          <div
+                            key={idx}
+                            className="grid grid-cols-1 md:grid-cols-6 gap-4 items-end"
+                          >
+                            <div>
+                              <label className="block text-sm font-bold mb-2">
+                                Item Name
+                              </label>
+                              <select
+                                name="itemName"
+                                value={item.name}
+                                onChange={(e) => handlePurchaseFormChange(e, idx)}
+                                required
+                                className="w-full border p-3 rounded-xl"
+                              >
+                                <option value="">Select Product</option>
+                                {products.map((p) =>
+                                  <option key={p._id || p.name} value={p.name}>
+                                    {p.name}
+                                  </option>
+                                )}
+                              </select>
+                            </div>
+                            <div>
+                              <label className="block text-sm font-bold mb-2">
+                                Quantity
+                              </label>
+                              <input
+                                type="number"
+                                min={1}
+                                name="quantity"
+                                value={item.quantity}
+                                onChange={(e) => handlePurchaseFormChange(e, idx)}
+                                required
+                                className="w-full border p-3 rounded-xl"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-sm font-bold mb-2">
+                                Unit
+                              </label>
+                              <input
+                                type="text"
+                                value={selectedProduct?.quantity_Unit || item.unit || ""}
+                                readOnly
+                                className="w-full border p-3 rounded-xl bg-gray-100"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-sm font-bold mb-2">
+                                Rate (per unit)
+                              </label>
+                              <input
+                                type="number"
+                                name="rate"
+                                value={selectedProduct?.price || selectedProduct?.selling_Price?.price || item.rate || 0}
+                                readOnly
+                                className="w-full border p-3 rounded-xl bg-gray-100"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-sm font-bold mb-2">
+                                Advance Paid
+                              </label>
+                              <input
+                                type="number"
+                                min={0}
+                                step="0.01"
+                                name="advancePaid"
+                                value={item.advancePaid}
+                                onChange={(e) => handlePurchaseFormChange(e, idx)}
+                                required
+                                className="w-full border p-3 rounded-xl"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-sm font-bold mb-2">
+                                Total Price
+                              </label>
+                              <div className="flex items-center gap-1">
+                                <button type="button" onClick={() => handlePurchaseFormChange({target: {name: 'totalPrice', value: Math.max(0, item.totalPrice - 100)}}, idx)} className="px-2.5 py-2 bg-gray-200 hover:bg-gray-300 rounded-lg font-bold transition text-gray-700">-</button>
+                                <input
+                                  type="number"
+                                  min={0}
+                                  step="0.01"
+                                  name="totalPrice"
+                                  value={item.totalPrice}
+                                  onChange={(e) => handlePurchaseFormChange(e, idx)}
+                                  className="w-full border p-2 rounded-xl text-center focus:ring-2 focus:ring-blue-500 outline-none"
+                                  onFocus={(e) => e.target.value === '0' && (e.target.value = '')}
+                                />
+                                <button type="button" onClick={() => handlePurchaseFormChange({target: {name: 'totalPrice', value: Number(item.totalPrice) + 100}}, idx)} className="px-2.5 py-2 bg-gray-200 hover:bg-gray-300 rounded-lg font-bold transition text-gray-700">+</button>
+                              </div>
+                              <div className="text-xs text-gray-500 mt-1">
+                                (Auto-calculated, can override)
+                              </div>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => removePurchaseItem(idx)}
+                              className="text-red-600 hover:text-red-900 font-bold text-xl"
+                              title="Remove item"
+                            >
+                              ✕
+                            </button>
+                          </div>
+                        );
+                      })}
+                      <button
+                        type="button"
+                        onClick={addPurchaseItem}
+                        className="text-blue-600 hover:text-blue-900 font-bold text-lg"
+                      >
+                        + Add Item
+                      </button>
+                      <button
+                        type="submit"
+                        className="block mt-5 w-full bg-blue-600 text-white py-3 rounded-2xl text-lg font-bold"
+                      >
+                        Save Purchase Entry
+                      </button>
+                    </form>
+                  </div>
+                </>
+              )}
+              {historyTab === "due" && (
+                <>
+                  {(!viewHistoryUser.dues || viewHistoryUser.dues.length === 0) && (
+                      <p className="text-lg text-gray-600 mb-3">No due history.</p>
+                    )}
+                    {(viewHistoryUser?.dues ?? [])
+                      .slice()
+                      .sort((a, b) => b.date.localeCompare(a.date))
+                      .map((entry, idx) => (
+                        <HistoryEntry
+                          key={`${entry.date}-${idx}`}
+                          entry={entry}
+                          onDelete={deleteHistoryItem}
+                          type="dues"
+                        />
+                    ))}
+                    
+                  {/* Add Due Form */}
+                  <div className="mt-8 border-t pt-7">
+                    <h4 className="font-bold mb-4 text-xl text-purple-800">
+                      Add Due Entry
+                    </h4>
+                    <form onSubmit={submitDue} className="space-y-6">
+                      <div>
+                        <label className="block text-sm font-bold mb-2">
+                          Date (YYYY-MM-DD)
+                        </label>
+                        <input
+                          type="date"
+                          value={dueForm.date}
+                          name="date"
+                          onChange={(e) =>
+                            setDueForm((prev) => ({
+                              ...prev,
+                              date: e.target.value,
+                            }))
+                          }
+                          required
+                          className="w-full border p-3 rounded-xl focus:ring-2 focus:ring-purple-500"
+                        />
+                      </div>
+                      {dueForm.items.map((item, idx) => {
+                        const selectedProduct = products.find((p) => p.name === item.name);
+                        return (
+                          <div
+                            key={idx}
+                            className="grid grid-cols-1 md:grid-cols-6 gap-4 items-end"
+                          >
+                            <div>
+                              <label className="block text-sm font-bold mb-2">
+                                Item Name
+                              </label>
+                              <select
+                                name="itemName"
+                                value={item.name}
+                                onChange={(e) => handleDueFormChange(e, idx)}
+                                required
+                                className="w-full border p-3 rounded-xl"
+                              >
+                                <option value="">Select Product</option>
+                                {products.map((p) =>
+                                  <option key={p._id || p.name} value={p.name}>
+                                    {p.name}
+                                  </option>
+                                )}
+                              </select>
+                            </div>
+                            <div>
+                              <label className="block text-sm font-bold mb-2">
+                                Quantity
+                              </label>
+                              <input
+                                type="number"
+                                min={1}
+                                name="quantity"
+                                value={item.quantity}
+                                onChange={(e) => handleDueFormChange(e, idx)}
+                                required
+                                className="w-full border p-3 rounded-xl"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-sm font-bold mb-2">
+                                Unit
+                              </label>
+                              <input
+                                type="text"
+                                value={selectedProduct?.quantity_Unit || item.unit || ""}
+                                readOnly
+                                className="w-full border p-3 rounded-xl bg-gray-100"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-sm font-bold mb-2">
+                                Rate (per unit)
+                              </label>
+                              <input
+                                type="number"
+                                name="rate"
+                                value={selectedProduct?.price || selectedProduct?.selling_Price?.price || item.rate || 0}
+                                readOnly
+                                className="w-full border p-3 rounded-xl bg-gray-100"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-sm font-bold mb-2">
+                                Due Amount
+                              </label>
+                              <div className="flex items-center gap-1">
+                                <button type="button" onClick={() => handleDueFormChange({target: {name: 'dueAmount', value: Math.max(0, item.dueAmount - 100)}}, idx)} className="px-2.5 py-2 bg-gray-200 hover:bg-gray-300 rounded-lg font-bold transition text-gray-700">-</button>
+                                <input
+                                  type="number"
+                                  min={0}
+                                  step="0.01"
+                                  name="dueAmount"
+                                  value={item.dueAmount}
+                                  onChange={(e) => handleDueFormChange(e, idx)}
+                                  className="w-full border p-2 rounded-xl text-center focus:ring-2 focus:ring-purple-500 outline-none"
+                                  onFocus={(e) => e.target.value === '0' && (e.target.value = '')}
+                                />
+                                <button type="button" onClick={() => handleDueFormChange({target: {name: 'dueAmount', value: Number(item.dueAmount) + 100}}, idx)} className="px-2.5 py-2 bg-gray-200 hover:bg-gray-300 rounded-lg font-bold transition text-gray-700">+</button>
+                              </div>
+                              <div className="text-xs text-gray-500 mt-1">
+                                (Auto-calculated, can override)
+                              </div>
+                            </div>
+                            <div className="flex items-center space-x-2 pt-4">
+                              <label className="block text-sm font-bold mb-2">
+                                Fully Paid
+                              </label>
+                              <input
+                                type="checkbox"
+                                name="fullyPaid"
+                                checked={item.fullyPaid}
+                                onChange={(e) => handleDueFormChange(e, idx)}
+                                className="accent-purple-600 w-6 h-6"
+                              />
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => removeDueItem(idx)}
+                              className="text-red-600 hover:text-red-900 font-bold text-xl"
+                              title="Remove item"
+                            >
+                              ✕
+                            </button>
+                          </div>
+                        );
+                      })}
+                      <button
+                        type="button"
+                        onClick={addDueItem}
+                        className="text-purple-600 hover:text-purple-900 font-bold text-lg"
+                      >
+                        + Add Item
+                      </button>
+                      <button
+                        type="submit"
+                        className="block mt-5 w-full bg-purple-600 text-white py-3 rounded-2xl text-lg font-bold"
+                      >
+                        Save Due Entry
+                      </button>
+                    </form>
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
