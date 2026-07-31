@@ -37,6 +37,43 @@ import AdminLists from "./pages/AdminLists";
 import AdminActivityLogs from "./pages/AdminActivityLogs";
 import AdminUserDetails from "./pages/AdminUserDetails";
 // ScrollToTop inside router
+function AdminRoute({ children }) {
+  const { isAuthenticated } = useAuth();
+  let isAdmin = false;
+  try {
+    const userStr = localStorage.getItem("user");
+    if (userStr) {
+      const user = JSON.parse(userStr);
+      if (user && user.role === "admin") {
+        isAdmin = true;
+      }
+    }
+  } catch (e) {}
+
+  if (!isAuthenticated || !isAdmin) {
+    return <Navigate to="/admin/login" replace />;
+  }
+  return children;
+}
+
+function AdminLoginRoute({ children }) {
+  let isAdmin = false;
+  try {
+    const userStr = localStorage.getItem("user");
+    if (userStr) {
+      const user = JSON.parse(userStr);
+      if (user && user.role === "admin") {
+        isAdmin = true;
+      }
+    }
+  } catch (e) {}
+
+  if (isAdmin) {
+    return <Navigate to="/admin/main" replace />;
+  }
+  return children;
+}
+
 function ScrollWrapper({ scrollRef }) {
   const { pathname } = useLocation();
   useEffect(() => {
@@ -181,23 +218,22 @@ function App() {
                 <Route path="/orders" element={<Order />} />
                 <Route path="/cart" element={<Cart />} />
                 <Route path="/wishlist" element={<Wishlist />} />
-                <Route path="/admin/signup" element={<AdminSignup />} />
-                <Route path="/admin/login" element={<AdminLogin />} />
-                <Route path="/admin/main" element={<AdminMain />} />
-                <Route path="/admin/users" element={<AdminUser />} />
-                <Route path="/admin/users/:id" element={<AdminUserDetails />} />
-                <Route path="/orders" element={<Order />} />
-                <Route path="/admin/history" element={<AdminUserHistory />} />
-                <Route path="/admin/receipts" element={<AdminReceipts />} />
-                <Route path="/admin/lists" element={<AdminLists />} />
-                <Route path="/admin/activity-logs" element={<AdminActivityLogs />} />
+                <Route path="/admin/signup" element={<AdminLoginRoute><AdminSignup /></AdminLoginRoute>} />
+                <Route path="/admin/login" element={<AdminLoginRoute><AdminLogin /></AdminLoginRoute>} />
+                <Route path="/admin/main" element={<AdminRoute><AdminMain /></AdminRoute>} />
+                <Route path="/admin/users" element={<AdminRoute><AdminUser /></AdminRoute>} />
+                <Route path="/admin/users/:id" element={<AdminRoute><AdminUserDetails /></AdminRoute>} />
+                <Route path="/admin/history" element={<AdminRoute><AdminUserHistory /></AdminRoute>} />
+                <Route path="/admin/receipts" element={<AdminRoute><AdminReceipts /></AdminRoute>} />
+                <Route path="/admin/lists" element={<AdminRoute><AdminLists /></AdminRoute>} />
+                <Route path="/admin/activity-logs" element={<AdminRoute><AdminActivityLogs /></AdminRoute>} />
                 <Route
                   path="/admin/product/:id"
-                  element={<AdminDetails />}
+                  element={<AdminRoute><AdminDetails /></AdminRoute>}
                 />{" "}
                 {/* <-- Dynamic details page */}
-                <Route path="/admin/messages" element={<AdminMessages />} />
-                <Route path="/admin/products" element={<AdminProduct />} />
+                <Route path="/admin/messages" element={<AdminRoute><AdminMessages /></AdminRoute>} />
+                <Route path="/admin/products" element={<AdminRoute><AdminProduct /></AdminRoute>} />
                 <Route path="/categories" element={<CategoryBrowser />} />
                 <Route path="/contact" element={<ContactSection />} />
                 <Route path="*" element={<Navigate to="/" />} />
@@ -208,8 +244,8 @@ function App() {
                 <Route path="/home" element={<Home theme={theme} />} />
                 <Route path="/login" element={<Login />} />
                 <Route path="/signup" element={<Signup />} />
-                <Route path="/admin/login" element={<AdminLogin />} />
-                <Route path="/admin/signup" element={<AdminSignup />} />
+                <Route path="/admin/login" element={<AdminLoginRoute><AdminLogin /></AdminLoginRoute>} />
+                <Route path="/admin/signup" element={<AdminLoginRoute><AdminSignup /></AdminLoginRoute>} />
                 <Route path="*" element={<Navigate to="/login" />} />
               </Routes>
             )}
