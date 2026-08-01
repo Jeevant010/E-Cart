@@ -237,20 +237,30 @@ function Cart() {
             <p className="mb-6 text-gray-600">
               Do you want to place this order for your cart items?
             </p>
-            <div className="flex justify-end gap-4">
+            <div className="flex flex-col sm:flex-row gap-3 mt-6">
               <button
-                className="px-4 py-2 rounded bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold"
+                className="px-4 py-2.5 rounded-xl bg-gray-150 hover:bg-gray-200 text-gray-700 font-bold transition text-sm"
                 onClick={() => setShowConfirm(false)}
                 disabled={placingOrder}
               >
                 Cancel
               </button>
               <button
-                className="px-4 py-2 rounded bg-blue-600 hover:bg-blue-800 text-white font-semibold"
+                className="px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold transition text-sm"
                 onClick={handlePlaceOrder}
                 disabled={placingOrder}
               >
-                {placingOrder ? "Placing..." : "Confirm Order"}
+                {placingOrder ? "Placing..." : "Cash on Delivery"}
+              </button>
+              <button
+                className="px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold transition text-sm"
+                onClick={() => {
+                  setShowConfirm(false);
+                  navigate('/checkout/payment', { state: { total } });
+                }}
+                disabled={placingOrder}
+              >
+                Pay Online
               </button>
             </div>
           </div>
