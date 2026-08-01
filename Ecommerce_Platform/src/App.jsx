@@ -32,6 +32,8 @@ import AdminUser from "./pages/AdminUser";
 import AdminUserHistory from "./pages/AdminUserHistory";
 import Cart from "./pages/Cart";
 import Wishlist from "./pages/Wishlist";
+import PaymentPage from "./pages/PaymentPage";
+import ConfirmPage from "./pages/ConfirmPage";
 import AdminReceipts from "./pages/AdminReceipts";
 import AdminLists from "./pages/AdminLists";
 import AdminActivityLogs from "./pages/AdminActivityLogs";
@@ -218,6 +220,8 @@ function App() {
                 <Route path="/orders" element={<Order />} />
                 <Route path="/cart" element={<Cart />} />
                 <Route path="/wishlist" element={<Wishlist />} />
+                <Route path="/checkout/payment" element={<PaymentPage />} />
+                <Route path="/checkout/confirm" element={<ConfirmPage />} />
                 <Route path="/admin/signup" element={<AdminLoginRoute><AdminSignup /></AdminLoginRoute>} />
                 <Route path="/admin/login" element={<AdminLoginRoute><AdminLogin /></AdminLoginRoute>} />
                 <Route path="/admin/main" element={<AdminRoute><AdminMain /></AdminRoute>} />
